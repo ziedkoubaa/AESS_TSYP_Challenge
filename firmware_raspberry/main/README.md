@@ -1,6 +1,6 @@
 # Raspberry Pi Firmware - Real-Time SEL Detection
 
-This directory contains the **real-time firmware implementation** for the EclipseGuardian SEL Detector running on a Raspberry Pi. The firmware monitors power regulator telemetry at high frequency and uses an embedded AI model (Isolation Forest) to detect anomalies that precede Single Event Latch-up (SEL) events.
+This directory contains the **real-time firmware implementation** for the PowerSense Detector running on a Raspberry Pi. The firmware monitors power regulator telemetry at high frequency and uses an embedded AI model (Isolation Forest) to detect anomalies that precede Single Event Latch-up (SEL) events.
 
 ---
 
