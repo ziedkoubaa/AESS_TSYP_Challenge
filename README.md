@@ -252,7 +252,7 @@ The watchdog system provides an additional layer of fault tolerance:
 The repository is structured as follows for modularity and ease of use:
 
 ```
-EclipseGuardian/
+PowerSense/
 │
 ├─ README.md
 ├─ requirements.txt
