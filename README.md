@@ -1,4 +1,4 @@
-# EclipseGuardian SEL Detector
+# PowerSense AI 
 
 **Purpose:** Early detection and prevention of Single Event Latch-up (SEL) in CubeSat power regulators using a lightweight embedded AI model.
 
@@ -15,7 +15,7 @@ CubeSat missions are vulnerable to **Single Event Latch-up (SEL)** — a radiati
 
 ## Solution Overview
 
-**EclipseGuardian SEL Detector** is an AI-based early warning system that continuously monitors the regulator's electrical behavior and predicts abnormal patterns before latch-up occurs.
+**PowerSense AI** is an AI-based early warning system that continuously monitors the regulator's electrical behavior and predicts abnormal patterns before latch-up occurs.
 
 - Runs directly on a low-power **ESP32 watchdog microcontroller**
 - Analyzes voltage, current, and temperature data at high frequency (10–20 kHz)
@@ -32,9 +32,188 @@ Learn what "healthy" operation looks like, detect the smallest deviations that p
 |-------|-----------|------|
 | **Hardware** | DC–DC power regulator, sensors (Vin, Iin, Vout, Iout, Temp) | Signal acquisition |
 | **AI Supervisor** | ESP32 running trained Isolation Forest (Q15 fixed-point) | Real-time anomaly detection |
+| **Hardware Watchdog** | ESP32 watchdog monitoring Raspberry Pi via heartbeat | Ensures OBC reliability and auto-recovery |
 | **Main OBC** | Raspberry Pi 4 / Flight computer | Receives alerts, logs telemetry, and controls recovery |
 | **Ground Station** | Mission operators | Receive anomaly events for post-analysis |
 | **Adaptation Layer** | OBC running main.py | Buffers collected data, retrains model periodically, exports new Q15 model to ESP32 |
+
+---
+
+## ESP32-Raspberry Pi Watchdog System
+
+To ensure mission-critical reliability, the system includes a **hardware watchdog** layer where an ESP32 microcontroller monitors the Raspberry Pi's health and can trigger a hardware reset if the Pi becomes unresponsive.
+
+### Architecture
+
+```
+┌─────────────────┐         Heartbeat (2s)         ┌──────────────┐
+│  Raspberry Pi   │────────────────────────────────>│    ESP32     │
+│  (Main OBC)     │                                 │  Watchdog    │
+│                 │<────────────────────────────────│              │
+└─────────────────┘    Reset Signal (on timeout)   └──────────────┘
+```
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Heartbeat Monitoring** | Raspberry Pi sends heartbeat pulse every 2 seconds via GPIO |
+| **Timeout Detection** | ESP32 triggers reset if no heartbeat received for 10 seconds |
+| **Hardware Reset** | ESP32 can physically reset the Pi via GPIO control |
+| **Graceful Shutdown** | Pi performs graceful shutdown when reset signal detected |
+| **Status LEDs** | Visual indication of system health and watchdog state |
+| **Logging** | Heartbeat events logged to `/var/log/heartbeat.log` |
+
+### Components
+
+#### 1. **ESP32 Watchdog (`esp 32 watchdog.cpp`)**
+- Monitors heartbeat signal on GPIO pin 25
+- Triggers hardware reset on GPIO pin 26 after 10-second timeout
+- Provides visual status via built-in LED
+- Logs watchdog events to serial console
+
+**Key Parameters:**
+```cpp
+#define WATCHDOG_TIMEOUT 10000  // 10 seconds
+#define HEARTBEAT_PIN 25        // Input from Raspberry Pi
+#define RESET_PIN 26            // Output to Raspberry Pi
+```
+
+#### 2. **Raspberry Pi Heartbeat (`Raspberypi Heartbeat.py`)**
+- Sends heartbeat pulse every 2 seconds to ESP32
+- Monitors for reset signal from ESP32
+- Performs graceful shutdown when reset detected
+- Logs all events to `/var/log/heartbeat.log`
+
+**GPIO Configuration:**
+```python
+HEARTBEAT_PIN = 17    # GPIO17 -> ESP32 D25
+RESET_PIN = 27        # GPIO27 <- ESP32 D26
+```
+
+#### 3. **Simulation Tool (`Watchdog simulation.py`)**
+- Software simulation of the watchdog system
+- Tests timeout and reset logic without hardware
+- Interactive commands to simulate Pi hangs
+- Useful for development and validation
+
+### Wiring Diagram
+
+```
+Raspberry Pi GPIO          ESP32
+─────────────────          ─────
+GPIO 17 (Output) ──────────> D25 (Input) - Heartbeat
+GPIO 27 (Input)  <────────── D26 (Output) - Reset
+GND              ──────────> GND
+```
+
+### Setup Instructions
+
+#### ESP32 Watchdog Setup
+
+1. Install Arduino IDE with ESP32 board support
+2. Open `esp 32 watchdog.cpp` in Arduino IDE
+3. Select your ESP32 board (e.g., ESP32 Dev Module)
+4. Upload the sketch to ESP32
+5. Monitor serial output to verify operation
+
+#### Raspberry Pi Heartbeat Setup
+
+1. Install RPi.GPIO library:
+   ```bash
+   sudo apt update
+   sudo apt install python3-rpi.gpio
+   ```
+
+2. Make the script executable:
+   ```bash
+   chmod +x "Raspberypi Heartbeat.py"
+   ```
+
+3. Run manually for testing:
+   ```bash
+   sudo python3 "Raspberypi Heartbeat.py"
+   ```
+
+4. Set up as systemd service for automatic startup:
+   ```bash
+   sudo nano /etc/systemd/system/heartbeat.service
+   ```
+
+   Add the following content:
+   ```ini
+   [Unit]
+   Description=Raspberry Pi Heartbeat Monitor
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=root
+   WorkingDirectory=/path/to/watchdog system
+   ExecStart=/usr/bin/python3 "/path/to/watchdog system/Raspberypi Heartbeat.py"
+   Restart=always
+   RestartSec=10
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+5. Enable and start the service:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable heartbeat.service
+   sudo systemctl start heartbeat.service
+   ```
+
+#### Testing with Simulation
+
+Run the simulation to test the watchdog logic without hardware:
+
+```bash
+python3 "Watchdog simulation.py"
+```
+
+**Interactive Commands:**
+- `1` - Simulate Raspberry Pi hang (stops heartbeats)
+- `2` - Show current status
+- `3` - Quit simulation
+- `4` - Run automatic test sequence
+
+### Watchdog Operation Modes
+
+| Mode | Pi State | ESP32 Action | LED Behavior |
+|------|----------|--------------|--------------|
+| **Normal** | Heartbeats received | Monitor only | Slow blink (1 Hz) |
+| **Timeout** | No heartbeat for 10s | Trigger reset | Solid ON during reset |
+| **Reset** | Rebooting | Wait for recovery | OFF after reset pulse |
+| **Booting** | Starting up | Wait for first heartbeat | OFF |
+
+### Integration with Main System
+
+The watchdog system provides an additional layer of fault tolerance:
+
+1. **Raspberry Pi runs:**
+   - SEL detection firmware (`firmware_raspberry/main`)
+   - Continuous learning pipeline (`src/main.py`)
+   - Heartbeat service
+
+2. **If Raspberry Pi hangs:**
+   - ESP32 detects missing heartbeats
+   - Triggers hardware reset after 10 seconds
+   - Pi reboots and resumes operation
+
+3. **If ESP32 watchdog fails:**
+   - System continues normal operation
+   - Watchdog provides redundancy, not critical path
+
+### Reliability Improvements
+
+| Scenario | Without Watchdog | With Watchdog |
+|----------|------------------|---------------|
+| **Software crash** | Manual intervention required | Auto-recovery in ~13s |
+| **Kernel panic** | Mission downtime | Hardware reset + reboot |
+| **Process deadlock** | Undetected failure | Detected and recovered |
+| **Recovery time** | Hours (ground contact) | Seconds (autonomous) |
 
 ---
 
@@ -77,6 +256,11 @@ EclipseGuardian/
 │       └─ ml/
 │           └─ model_iforest.h
 │
+├─ watchdog system/             ← ESP32-Raspberry Pi mutual monitoring
+│   ├─ esp 32 watchdog.cpp
+│   ├─ Raspberypi Heartbeat.py
+│   └─ Watchdog simulation.py
+│
 └─ src/
     ├─ model_export.py
     ├─ feature_engineering.py
@@ -89,6 +273,7 @@ EclipseGuardian/
 - **data/**: Stores collected raw and processed data, including a buffer folder for real-time data from ESP32.
 - **models/**: Holds trained model files, scalers, and exported firmware headers.
 - **firmware_raspberry/**: Real-time embedded C firmware for Raspberry Pi watchdog. **[See detailed documentation →](firmware_raspberry/main/README.md)**
+- **watchdog system/**: ESP32-based watchdog system that monitors Raspberry Pi health via heartbeat signals and can trigger hardware resets.
 - **src/**: Reusable Python scripts for feature extraction, model export, and the continuous learning pipeline.
 
 ---
@@ -279,4 +464,4 @@ In the real world, set `RETRAIN_EVERY_SEC = 3600` for hourly retraining and test
 
 ## Summary
 
-**EclipseGuardian SEL Detector** is a compact, explainable, and embeddable AI designed to predict and prevent radiation-induced power faults in CubeSats, bridging the gap between hardware protection and intelligent fault prediction.
+**PowerSense AI** is a compact, explainable, and embeddable AI designed to predict and prevent radiation-induced power faults in CubeSats, bridging the gap between hardware protection and intelligent fault prediction.
