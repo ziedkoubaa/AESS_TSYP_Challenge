@@ -65,7 +65,17 @@ EclipseGuardian/
 │   ├─ iforest_model.pkl
 │   ├─ feature_scaler.pkl
 │   ├─ model_iforest.h
-│   └─ last_retrain.txt     
+│   └─ last_retrain.txt
+│
+├─ firmware_raspberry/          ← Raspberry Pi real-time firmware
+│   └─ main/                    (See firmware_raspberry/main/README.md)
+│       ├─ main.c
+│       ├─ power_fdir.c/h
+│       ├─ features_if.c/h
+│       ├─ logger_mcp3008.c
+│       ├─ params.h
+│       └─ ml/
+│           └─ model_iforest.h
 │
 └─ src/
     ├─ model_export.py
@@ -78,6 +88,7 @@ EclipseGuardian/
 - **notebooks/**: Contains Jupyter notebooks for feature engineering, model training, testing, interpretation, and visualization.
 - **data/**: Stores collected raw and processed data, including a buffer folder for real-time data from ESP32.
 - **models/**: Holds trained model files, scalers, and exported firmware headers.
+- **firmware_raspberry/**: Real-time embedded C firmware for Raspberry Pi watchdog. **[See detailed documentation →](firmware_raspberry/main/README.md)**
 - **src/**: Reusable Python scripts for feature extraction, model export, and the continuous learning pipeline.
 
 ---
@@ -152,6 +163,34 @@ EclipseGuardian/
 | `cubesat_regulator_raw.csv` | Original collected sensor data |
 
 ---
+ 
+## 🚀 Model Optimization for CubeSat Real-Time Detection
+
+This project includes a real-time anomaly detection module based on **Isolation Forest**, optimized for fast inference on embedded hardware (e.g., CubeSat regulator fault detection).
+
+### 🔧 Optimization Summary
+| Technique | Description | Effect |
+|------------|--------------|---------|
+| **Pipeline Integration** | Combined `StandardScaler` and `IsolationForest` into one `Pipeline` | Eliminates redundant Python calls |
+| **Reduced Model Size** | `n_estimators=50`, `max_samples=256` | ~2–3× faster inference with minimal accuracy loss |
+| **Parallel Processing** | `n_jobs=-1` | Uses all available CPU cores |
+| **Float32 Precision** | Converts all features to 32-bit floats | Reduces memory & improves CPU cache efficiency |
+| **Score Simplification** | Uses `score_samples()` instead of `decision_function()` | Avoids unnecessary offset computation |
+| **Warm-Up Pass** | One short pre-inference run | Removes first-call overhead from scikit-learn |
+| **Threshold Calibration** | 99.0–99.5 percentile on healthy data | Controls false-positive rate and recall sensitivity |
+| **Single Packed Model** | Saves pipeline + threshold as one `joblib` file | Simplifies loading during mission runtime |
+
+---
+
+### ⚡ Performance (on test dataset)
+- **Total inference time:** ~25 ms for 9 998 samples  
+- **Average per-sample:** 0.0026 ms (≈ 385 samples/s)
+- **Accuracy:** ~97 % overall  
+- **Fault recall:** 0.45 → 0.50 after threshold optimization  
+
+---
+
+
 
 ## Continuous Learning Pipeline (In-Orbit Adaptation)
 
