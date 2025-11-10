@@ -133,7 +133,7 @@ if __name__ == "__main__":
         with open(f"{MODEL_DIR}last_retrain.txt", "w") as f:
             f.write(str(int(time.time()) - 3600))
 
-    print("EclipseGuardian continuous-learning STARTED")
+    print("PowerSense continuous-learning STARTED")
     print(f"   → Will retrain every {RETRAIN_EVERY_SEC} seconds (test mode)")
 
     while True:
