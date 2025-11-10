@@ -1,0 +1,9 @@
+# Automatically normalize line endings
+* text=auto
+
+# You can add specific rules if needed:
+*.sh text eol=lf
+*.py text eol=lf
+*.bat text eol=crlf
+*.csv text eol=lf
+*.ipynb text eol=lf
