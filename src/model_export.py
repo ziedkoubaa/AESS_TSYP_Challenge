@@ -91,7 +91,7 @@ def export_to_q15_header(iso, scaler, output_path='models/model_iforest2.h', thr
     # -----------------------------
     lines = [
         "/* =============================================== */",
-        "/*   EclipseGuardian: SEL Detector (Q15 Model)     */",
+        "/*   PowerSense: SEL Detector (Q15 Model)     */",
         "/*   Auto-generated from Python model              */",
         "/* =============================================== */",
         "#ifndef MODEL_IFOREST_H",
