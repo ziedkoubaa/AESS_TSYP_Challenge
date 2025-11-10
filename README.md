@@ -20,6 +20,36 @@ CubeSat missions are vulnerable to **Single Event Latch-up (SEL)** — a radiati
 - Runs directly on a low-power **ESP32 watchdog microcontroller**
 - Analyzes voltage, current, and temperature data at high frequency (10–20 kHz)
 
+```mermaid
+flowchart LR
+    A[Radiation Strike / SEL Event] --> B[Current Spike Detected]
+    B --> C[AI Pattern Analysis 5-10ms]
+    C --> D{SEL Confirmed?}
+
+    D -- "Yes - High Confidence" --> E[Immediate Power Cycle<br>Cut Power to Affected Bus]
+    D -- "Maybe - Medium Confidence" --> F[Increase Monitoring<br>Gather More Data]
+    D -- "No - Normal Spike" --> G[Continue Normal Operation]
+
+    F --> H[Subsequent Analysis]
+    H --> I{Confirm SEL?}
+    I -- Yes --> E
+    I -- No --> G
+
+    E --> J[Wait 500ms<br>Latch-up Clearing Period]
+    J --> K[Restore Power]
+    K --> L[Verify Recovery]
+    L --> M{Success?}
+
+    M -- Yes --> N[Log Event & Resume Normal]
+    M -- No --> O[Critical Failure<br>Mission Impact]
+
+    O --> P[System Degraded<br>Limited Operations]
+    P --> Q[CubeSat Enters Safe Mode<br>Works at minimum capacity<br>to prevent mission failure]
+    
+    N --> R[Update AI Model<br>Learn from Event]
+    Q --> R
+```
+
 ### Core Concept
 
 Learn what "healthy" operation looks like, detect the smallest deviations that precede a latch-up, and trigger a preventive reset within milliseconds.
@@ -227,6 +257,8 @@ EclipseGuardian/
 ├─ README.md
 ├─ requirements.txt
 ├─ .gitignore
+│
+├─ visual documentation/       ← Here videos and images
 │
 ├─ notebooks/
 │   ├─ feature_engineering.ipynb
