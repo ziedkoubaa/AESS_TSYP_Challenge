@@ -1,5 +1,5 @@
 /* =============================================== */
-/*   EclipseGuardian: SEL Detector (Q15 Model)     */
+/*   PowerSense: SEL Detector (Q15 Model)     */
 /*   Auto-generated from Python model              */
 /* =============================================== */
 #ifndef MODEL_IFOREST_H
